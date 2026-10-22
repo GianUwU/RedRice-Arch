@@ -36,3 +36,9 @@ export PATH="/home/gian/.local/bin:$PATH"
 if [[ "$TERM" == "xterm-kitty" ]]; then
     alias ssh="kitten ssh"
 fi
+
+# RedRice-Arch quick sync helper
+redrice-sync() {
+    local msg="${1:-Rice update $(date '+%Y-%m-%d %H:%M')}"
+    (cd "$HOME/RedRice-Arch" && git add -A && git commit -m "$msg" && git push)
+}
