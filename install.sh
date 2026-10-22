@@ -73,19 +73,69 @@ if confirm "Install AUR packages?"; then
 fi
 
 # ------------------------------------------------------------------------------
+# Choose Deployment Method (Symlink vs Copy)
+# ------------------------------------------------------------------------------
+USE_SYMLINKS=true
+read -r -p "$(echo -e "${YELLOW}?${NC} Deploy configs as live symlinks (auto-adjust on change) or copy? [S(ymlink)/c(opy)]: ")" deploy_mode
+case "$deploy_mode" in
+    [cC][oO][pP][yY]|[cC]) USE_SYMLINKS=false ;;
+    *) USE_SYMLINKS=true ;;
+esac
+
+# ------------------------------------------------------------------------------
 # 3. Deploy User Configurations (~/.config)
 # ------------------------------------------------------------------------------
 if confirm "Deploy dotfiles to $TARGET_HOME/.config?"; then
-    log_info "Backing up existing configs if present..."
-    mkdir -p "$TARGET_HOME/.config"
+    mkdir -p "$TARGET_HOME/.config/quickshell" "$TARGET_HOME/.config/nvim" "$TARGET_HOME/.config/systemd/user"
 
-    # Copy configurations
-    cp -r "$SCRIPT_DIR/dot_config/"* "$TARGET_HOME/.config/"
+    # Replace hardcoded /home/gian with current user's home directory if different
+    if [ "$TARGET_HOME" != "/home/gian" ]; then
+        log_info "Adjusting path variables in repo to match $TARGET_HOME..."
+        find "$SCRIPT_DIR/dot_config" "$SCRIPT_DIR/dot_local" -type f \( -name "*.jsonc" -o -name "*.json" -o -name "*.conf" -o -name "*.py" -o -name "*.sh" -o -name "*.service" \) \
+            -exec sed -i "s|/home/gian|$TARGET_HOME|g" {} +
+    fi
 
-    # Replace hardcoded /home/gian with current user's home directory
-    log_info "Adjusting path variables to $TARGET_HOME..."
-    find "$TARGET_HOME/.config" -type f \( -name "*.jsonc" -o -name "*.json" -o -name "*.conf" -o -name "*.py" -o -name "*.sh" -o -name "*.service" \) \
-        -exec sed -i "s|/home/gian|$TARGET_HOME|g" {} +
+    for dir in hypr waybar swaync kitty wofi dolphin eww; do
+        target="$TARGET_HOME/.config/$dir"
+        [ -e "$target" ] && [ ! -L "$target" ] && mv "$target" "${target}.backup.$(date +%s)"
+        [ -L "$target" ] && rm "$target"
+        if [ "$USE_SYMLINKS" = true ]; then
+            ln -s "$SCRIPT_DIR/dot_config/$dir" "$target"
+        else
+            cp -r "$SCRIPT_DIR/dot_config/$dir" "$target"
+        fi
+    done
+
+    # Single config files
+    for item in kdeglobals; do
+        target="$TARGET_HOME/.config/$item"
+        [ -e "$target" ] && [ ! -L "$target" ] && mv "$target" "${target}.backup.$(date +%s)"
+        [ -L "$target" ] && rm "$target"
+        if [ "$USE_SYMLINKS" = true ]; then
+            ln -s "$SCRIPT_DIR/dot_config/$item" "$target"
+        else
+            cp "$SCRIPT_DIR/dot_config/$item" "$target"
+        fi
+    done
+
+    # nvim/init.vim
+    [ -e "$TARGET_HOME/.config/nvim/init.vim" ] && rm -f "$TARGET_HOME/.config/nvim/init.vim"
+    if [ "$USE_SYMLINKS" = true ]; then
+        ln -s "$SCRIPT_DIR/dot_config/nvim/init.vim" "$TARGET_HOME/.config/nvim/init.vim"
+    else
+        cp "$SCRIPT_DIR/dot_config/nvim/init.vim" "$TARGET_HOME/.config/nvim/init.vim"
+    fi
+
+    # quickshell/hyprquickshot
+    [ -e "$TARGET_HOME/.config/quickshell/hyprquickshot" ] && rm -rf "$TARGET_HOME/.config/quickshell/hyprquickshot"
+    if [ "$USE_SYMLINKS" = true ]; then
+        ln -s "$SCRIPT_DIR/dot_config/quickshell/hyprquickshot" "$TARGET_HOME/.config/quickshell/hyprquickshot"
+    else
+        cp -r "$SCRIPT_DIR/dot_config/quickshell/hyprquickshot" "$TARGET_HOME/.config/quickshell/hyprquickshot"
+    fi
+
+    # systemd user
+    cp -r "$SCRIPT_DIR/dot_config/systemd/user/"* "$TARGET_HOME/.config/systemd/user/" 2>/dev/null || true
 
     log_success "Configs deployed to $TARGET_HOME/.config."
 fi
@@ -98,18 +148,37 @@ if confirm "Deploy ~/.local (custom scripts, Dolphin Crimson Glass library, colo
     mkdir -p "$TARGET_HOME/.local/lib"
     mkdir -p "$TARGET_HOME/.local/share/color-schemes"
 
-    cp -r "$SCRIPT_DIR/dot_local/bin/"* "$TARGET_HOME/.local/bin/"
-    cp -r "$SCRIPT_DIR/dot_local/lib/"* "$TARGET_HOME/.local/lib/"
-    cp -r "$SCRIPT_DIR/dot_local/share/"* "$TARGET_HOME/.local/share/"
+    for bin in dolphin setup-suspend-wakeup.sh; do
+        target="$TARGET_HOME/.local/bin/$bin"
+        [ -e "$target" ] && rm -f "$target"
+        if [ "$USE_SYMLINKS" = true ]; then
+            ln -s "$SCRIPT_DIR/dot_local/bin/$bin" "$target"
+        else
+            cp "$SCRIPT_DIR/dot_local/bin/$bin" "$target"
+        fi
+    done
 
-    # Replace hardcoded home paths
-    find "$TARGET_HOME/.local/bin" -type f -exec sed -i "s|/home/gian|$TARGET_HOME|g" {} +
+    target_lib="$TARGET_HOME/.local/lib/libdolphinglass.so"
+    [ -e "$target_lib" ] && rm -f "$target_lib"
+    if [ "$USE_SYMLINKS" = true ]; then
+        ln -s "$SCRIPT_DIR/dot_local/lib/libdolphinglass.so" "$target_lib"
+    else
+        cp "$SCRIPT_DIR/dot_local/lib/libdolphinglass.so" "$target_lib"
+    fi
+
+    target_cs="$TARGET_HOME/.local/share/color-schemes/CrimsonGlass.colors"
+    [ -e "$target_cs" ] && rm -f "$target_cs"
+    if [ "$USE_SYMLINKS" = true ]; then
+        ln -s "$SCRIPT_DIR/dot_local/share/color-schemes/CrimsonGlass.colors" "$target_cs"
+    else
+        cp "$SCRIPT_DIR/dot_local/share/color-schemes/CrimsonGlass.colors" "$target_cs"
+    fi
 
     # Ensure executable permissions
-    chmod +x "$TARGET_HOME/.local/bin/"*
-    chmod +x "$TARGET_HOME/.config/hypr/scripts/"* 2>/dev/null || true
-    chmod +x "$TARGET_HOME/.config/waybar/scripts/"* 2>/dev/null || true
-    chmod +x "$TARGET_HOME/.config/swaync/"*.py 2>/dev/null || true
+    chmod +x "$SCRIPT_DIR/dot_local/bin/"* 2>/dev/null || true
+    chmod +x "$SCRIPT_DIR/dot_config/hypr/scripts/"* 2>/dev/null || true
+    chmod +x "$SCRIPT_DIR/dot_config/waybar/scripts/"* 2>/dev/null || true
+    chmod +x "$SCRIPT_DIR/dot_config/swaync/"*.py 2>/dev/null || true
 
     log_success "~/.local assets and scripts deployed."
 fi
@@ -118,17 +187,22 @@ fi
 # 5. Deploy Shell Configuration
 # ------------------------------------------------------------------------------
 if confirm "Deploy .bashrc and custom command cheatsheets?"; then
-    [ -f "$TARGET_HOME/.bashrc" ] && cp "$TARGET_HOME/.bashrc" "$TARGET_HOME/.bashrc.backup.$(date +%s)"
-    cp "$SCRIPT_DIR/shell/.bashrc" "$TARGET_HOME/.bashrc"
-    [ -f "$SCRIPT_DIR/shell/.bash_profile" ] && cp "$SCRIPT_DIR/shell/.bash_profile" "$TARGET_HOME/.bash_profile"
+    [ -f "$TARGET_HOME/.bashrc" ] && [ ! -L "$TARGET_HOME/.bashrc" ] && cp "$TARGET_HOME/.bashrc" "$TARGET_HOME/.bashrc.backup.$(date +%s)"
+    [ -e "$TARGET_HOME/.bashrc" ] && rm -f "$TARGET_HOME/.bashrc"
 
-    if [ -d "$SCRIPT_DIR/shell/commands" ]; then
+    if [ "$USE_SYMLINKS" = true ]; then
+        ln -s "$SCRIPT_DIR/shell/.bashrc" "$TARGET_HOME/.bashrc"
+        [ -e "$TARGET_HOME/.bash_profile" ] && rm -f "$TARGET_HOME/.bash_profile"
+        ln -s "$SCRIPT_DIR/shell/.bash_profile" "$TARGET_HOME/.bash_profile"
+        [ -e "$TARGET_HOME/Commands" ] && rm -rf "$TARGET_HOME/Commands"
+        ln -s "$SCRIPT_DIR/shell/commands" "$TARGET_HOME/Commands"
+    else
+        cp "$SCRIPT_DIR/shell/.bashrc" "$TARGET_HOME/.bashrc"
+        cp "$SCRIPT_DIR/shell/.bash_profile" "$TARGET_HOME/.bash_profile"
         mkdir -p "$TARGET_HOME/Commands"
         cp -r "$SCRIPT_DIR/shell/commands/"* "$TARGET_HOME/Commands/"
     fi
 
-    # Adjust paths in bashrc
-    sed -i "s|/home/gian|$TARGET_HOME|g" "$TARGET_HOME/.bashrc"
     log_success "Shell configuration deployed."
 fi
 
@@ -146,14 +220,12 @@ if confirm "Configure SDDM and Astronaut theme?"; then
         sudo cp "$SCRIPT_DIR/system/sddm/virtualkbd.conf" /etc/sddm.conf.d/virtualkbd.conf
     fi
 
-    # Check if sddm-astronaut-theme is installed
     SDDM_THEME_DIR="/usr/share/sddm/themes/sddm-astronaut-theme"
     if [ ! -d "$SDDM_THEME_DIR" ]; then
         log_info "Installing sddm-astronaut-theme from GitHub..."
         sudo git clone https://github.com/Keyitdev/sddm-astronaut-theme.git "$SDDM_THEME_DIR"
     fi
 
-    # Copy customized theme settings and wallpaper
     if [ -d "$SDDM_THEME_DIR" ]; then
         sudo cp "$SCRIPT_DIR/system/sddm/purple_leaves.conf" "$SDDM_THEME_DIR/Themes/" 2>/dev/null || true
         sudo cp "$SCRIPT_DIR/dot_config/hypr/Wallpapers/wallpaper1.png" "$SDDM_THEME_DIR/Backgrounds/" 2>/dev/null || true
@@ -190,6 +262,6 @@ if confirm "Enable core system and user services?"; then
 fi
 
 # Fix ownership
-chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config" "$TARGET_HOME/.local" "$TARGET_HOME/.bashrc" 2>/dev/null || true
+chown -hR "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config" "$TARGET_HOME/.local" "$TARGET_HOME/.bashrc" "$TARGET_HOME/.bash_profile" "$TARGET_HOME/Commands" 2>/dev/null || true
 
 echo -e "${GREEN}${BOLD}Setup completed successfully! Enjoy RedRice-Arch.${NC}"
