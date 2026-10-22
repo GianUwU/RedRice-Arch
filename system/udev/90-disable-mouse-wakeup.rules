@@ -1,0 +1,8 @@
+# Disable wakeup for Logitech Bolt Receiver (USB ID 046d:c548)
+ACTION=="add|change", SUBSYSTEM=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c548", ATTR{power/wakeup}="disabled"
+
+# Disable wakeup for Logitech Unifying Receiver (USB ID 046d:c52b)
+ACTION=="add|change", SUBSYSTEM=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c52b", ATTR{power/wakeup}="disabled"
+
+# Disable wakeup for ASUS built-in Touchpad (I2C ASUE140D)
+ACTION=="add|change", SUBSYSTEM=="i2c", ATTR{name}=="ASUE140D:00", ATTR{power/wakeup}="disabled"

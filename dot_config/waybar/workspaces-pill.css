@@ -1,0 +1,46 @@
+/* Workspaces Pill - The Unified Bar */
+window#waybar.capsule #workspaces {
+  background: @background;
+  border-radius: 9999px;
+  border: 3px solid @color2;
+  padding: 6px 0;
+  opacity: 1;
+}
+
+window#waybar.capsule #workspaces button {
+  color: @foreground;
+  padding: 0;
+  min-width: 24px;
+  min-height: 24px;
+  margin: 3px 2px;
+  border-radius: 9999px;
+  opacity: 1;
+  font-size: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 2);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+window#waybar.capsule #workspaces button.active {
+  color: @color0;
+  min-width: 24px;
+  min-height: 24px;
+  margin: 3px 2px;
+  box-shadow: 0 0 3px 2px white;
+  border-radius: 9999px;
+  font-weight: 600;
+  background: transparent;
+}
+
+/* Floating application icons outside the bar, right-bound */
+window#waybar.capsule #custom-workspace-icons {
+  font-family: "JetBrainsMono Nerd Font Propo";
+  font-size: 14px;
+  color: #FFFFFF;
+  background: @background;
+  border: none;
+  border-radius: 18px;
+  padding: 6px 10px 12px 10px;
+  margin-right: 8px;
+}

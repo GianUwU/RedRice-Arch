@@ -1,0 +1,3 @@
+chmod +x app.py
+
+then move it to /usr/local/bin/app <- IMPORTANT, no ".py"

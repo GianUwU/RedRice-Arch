@@ -1,0 +1,235 @@
+/* ================================================================
+   Crimson Glass Theme for Dolphin File Manager
+   Ultra-translucent glass styling with pure white text and crimson accents
+   ================================================================ */
+
+/* Global text and selection colors */
+QWidget {
+    color: #ffffff;
+    selection-background-color: #710400;
+    selection-color: #ffffff;
+    font-family: inherit;
+}
+
+/* Make main window and all container backgrounds transparent */
+QMainWindow,
+DolphinMainWindow,
+DolphinViewContainer,
+DolphinView,
+QSplitter,
+QStackedWidget,
+QAbstractScrollArea,
+QAbstractItemView,
+QTreeView,
+QListView,
+KItemListContainer,
+KItemListView,
+QWidget#viewport,
+QWidget#dolphin_viewContainer {
+    background: transparent !important;
+    background-color: transparent !important;
+    alternate-background-color: transparent !important;
+    border: none !important;
+}
+
+/* Top Toolbar */
+QToolBar {
+    background-color: rgba(14, 12, 14, 0.25) !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(113, 4, 0, 0.3) !important;
+    spacing: 4px;
+    padding: 3px 6px;
+}
+
+QToolButton {
+    background-color: transparent !important;
+    color: #ffffff !important;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 4px 6px;
+}
+
+QToolButton:hover {
+    background-color: rgba(113, 4, 0, 0.4) !important;
+    border: 1px solid #710400;
+}
+
+QToolButton:pressed,
+QToolButton:checked {
+    background-color: rgba(113, 4, 0, 0.75) !important;
+    border: 1px solid #8e0702;
+    color: #ffffff !important;
+}
+
+/* Sidebar (Places, Remote, Recent, Devices) */
+KFilePlacesView,
+QDockWidget {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+KFilePlacesView::item {
+    color: #ffffff !important;
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+
+KFilePlacesView::item:hover {
+    background-color: rgba(113, 4, 0, 0.3) !important;
+    color: #ffffff !important;
+}
+
+KFilePlacesView::item:selected {
+    background-color: rgba(113, 4, 0, 0.7) !important;
+    color: #ffffff !important;
+}
+
+/* Details Mode Column Header (Name, Size, Modified) */
+QHeaderView {
+    background-color: transparent !important;
+    border: none !important;
+}
+
+QHeaderView::section {
+    background-color: rgba(18, 14, 16, 0.4) !important;
+    color: #ffffff !important;
+    padding: 4px 8px;
+    border: none !important;
+    border-bottom: 1px solid rgba(113, 4, 0, 0.4) !important;
+    font-weight: bold;
+}
+
+QHeaderView::section:hover {
+    background-color: rgba(113, 4, 0, 0.3) !important;
+    color: #ffffff !important;
+}
+
+/* Search bar and location bar line edits */
+QLineEdit {
+    background-color: rgba(22, 16, 18, 0.6) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(113, 4, 0, 0.5) !important;
+    border-radius: 4px;
+    padding: 4px 8px;
+    selection-background-color: #710400;
+}
+
+QLineEdit:focus {
+    border: 1px solid #8e0702 !important;
+    background-color: rgba(28, 20, 22, 0.75) !important;
+}
+
+/* Bottom Status Bar */
+QStatusBar {
+    background-color: rgba(14, 12, 14, 0.2) !important;
+    color: #b97d8c !important;
+    border-top: 1px solid rgba(113, 4, 0, 0.25) !important;
+}
+
+/* Context Menus */
+QMenu {
+    background-color: rgba(14, 12, 14, 0.9) !important;
+    border: 1px solid #710400 !important;
+    border-radius: 6px;
+    padding: 4px;
+    color: #ffffff !important;
+}
+
+QMenu::item {
+    background: transparent;
+    color: #ffffff !important;
+    padding: 6px 24px 6px 12px;
+    border-radius: 4px;
+}
+
+QMenu::item:selected {
+    background-color: rgba(113, 4, 0, 0.8) !important;
+    color: #ffffff !important;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: rgba(113, 4, 0, 0.4);
+    margin: 4px 8px;
+}
+
+/* Dialogs & Buttons */
+QDialog {
+    background-color: rgba(14, 12, 14, 0.92) !important;
+    color: #ffffff !important;
+    border: 1px solid #710400 !important;
+    border-radius: 8px;
+}
+
+QPushButton {
+    background-color: rgba(28, 20, 24, 0.8) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(113, 4, 0, 0.6) !important;
+    border-radius: 4px;
+    padding: 6px 14px;
+}
+
+QPushButton:hover {
+    background-color: #710400 !important;
+    border: 1px solid #8e0702 !important;
+}
+
+QPushButton:pressed {
+    background-color: #550200 !important;
+}
+
+/* Minimal translucent crimson scrollbars */
+QScrollBar:vertical {
+    background: transparent !important;
+    width: 6px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: rgba(113, 4, 0, 0.5) !important;
+    border-radius: 3px;
+    min-height: 24px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #8e0702 !important;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+    background: none !important;
+}
+
+QScrollBar:horizontal {
+    background: transparent !important;
+    height: 6px;
+    margin: 0px;
+}
+
+QScrollBar::handle:horizontal {
+    background: rgba(113, 4, 0, 0.5) !important;
+    border-radius: 3px;
+    min-width: 24px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #8e0702 !important;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+    background: none !important;
+}
+
+/* Tooltips */
+QToolTip {
+    background-color: rgba(18, 14, 16, 0.92) !important;
+    color: #ffffff !important;
+    border: 1px solid #710400 !important;
+    border-radius: 4px;
+    padding: 4px 8px;
+}

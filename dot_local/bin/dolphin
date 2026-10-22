@@ -1,0 +1,5 @@
+#!/bin/sh
+# Dolphin Crimson Glass Wrapper
+export LD_PRELOAD="/home/gian/.local/lib/libdolphinglass.so${LD_PRELOAD:+:$LD_PRELOAD}"
+export KDE_COLOR_SCHEME_PATH="/home/gian/.local/share/color-schemes/CrimsonGlass.colors"
+exec /usr/bin/dolphin -stylesheet /home/gian/.config/dolphin/dolphin-glass.qss "$@"

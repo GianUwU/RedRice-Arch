@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkMenu" id="menu">
+    <property name="reserve-toggle-size">False</property>
+    <property name="width-request">180</property>
+    <child>
+      <object class="GtkMenuItem" id="output">
+        <property name="label">Output Device...</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparatorMenuItem" id="delimiter1"/>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="boost">
+        <property name="label">MAX+ (toggle boost)</property>
+      </object>
+    </child>
+  </object>
+</interface>

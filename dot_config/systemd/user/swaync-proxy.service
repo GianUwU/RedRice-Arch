@@ -1,0 +1,13 @@
+[Unit]
+Description=SwayNC Notification Countdown Proxy Service
+After=swaync.service
+Wants=swaync.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/gian/.config/swaync/swaync_proxy.py
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=default.target

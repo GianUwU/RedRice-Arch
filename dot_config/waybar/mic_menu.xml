@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkMenu" id="menu">
+    <property name="reserve-toggle-size">False</property>
+    <property name="width-request">180</property>
+    <child>
+      <object class="GtkMenuItem" id="input">
+        <property name="label">Input Device...</property>
+      </object>
+    </child>
+  </object>
+</interface>

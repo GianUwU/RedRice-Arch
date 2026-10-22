@@ -1,0 +1,242 @@
+@import "./colors.css";
+@import "./audio-state.css";
+@import "./workspaces-pill.css";
+
+* {
+  font-family: "JetBrainsMono Nerd Font Propo";
+  font-size: 16px;
+  border-radius: 0;
+  box-shadow: none;
+}
+window#waybar {
+  background: @background;
+  border-radius: 9999px;
+  border: 3px solid @color2;
+}
+
+window#waybar.capsule {
+  background: transparent;
+  border: none;
+}
+
+window#waybar.capsule #clock-capsule {
+  background: @background;
+  border-radius: 9999px;
+  border: 3px solid @color2;
+  padding: 0;
+  min-width: 28px;
+}
+
+window#waybar.capsule #clock {
+  padding: 6px 0;
+}
+
+
+
+#custom-cachy:hover,
+#cpu:hover,
+#network:hover,
+#bluetooth:hover,
+#pulseaudio:hover,
+#pulseaudio.microphone:hover,
+#pulseaudio.sink-muted:hover,
+#custom-scale:hover,
+#custom-scale-075:hover,
+#custom-scale-10:hover,
+#custom-scale-133:hover,
+#custom-scale-15:hover,
+#custom-capsule-btn-main:hover,
+#custom-capsule-btn-capsule:hover,
+#custom-powermenu:hover {
+  opacity: 0.5;
+}
+
+#custom-cachy,
+#cpu,
+#clock,
+#mpris,
+#custom-menu,
+#tray,
+#privacy,
+#network,
+#bluetooth,
+#pulseaudio,
+#pulseaudio.microphone,
+#backlight,
+#custom-scale,
+#custom-scale-075,
+#custom-scale-10,
+#custom-scale-133,
+#custom-scale-15,
+#custom-capsule-btn-main,
+#custom-capsule-btn-capsule,
+#battery,
+#custom-powermenu {
+  color: @foreground;
+  padding: 6px 0;
+}
+
+#workspaces {
+  padding-top: 0;
+}
+#workspaces button:hover {
+  background: @color1;
+}
+
+#workspaces button {
+  color: @foreground;
+  padding: 0;
+  min-width: 24px;
+  min-height: 24px;
+  margin: 3px 2px;
+  border-radius: 9999px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 2);
+  border: none;
+}
+
+#workspaces button.active { 
+  color: @color0;
+  min-width: 24px;
+  min-height: 24px;
+  margin: 6px 2px;
+  box-shadow: 0 0 3px 2px white; 
+  border-radius: 9999px; 
+  font-weight: 600; 
+}
+
+#workspaces button.empty {
+  color: @color5;
+}
+
+#clock {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+#nework{
+    padding-top: 10px;
+}
+
+#network.disabled {
+  color: @color3;
+}
+#network.wifi {
+  color: @color6;
+}
+#network.ethernet {
+  color: @color7;
+}
+
+#bluetooth.disabled {
+  color: @color3;
+}
+#bluetooth.connected {
+  color: @color7;
+}
+
+#pulseaudio.sink-muted:not(.microphone) {
+  color: @color3;
+}
+#pulseaudio.microphone.source-muted {
+  color: @color3;
+}
+
+#battery.percentage {
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+#battery.icon {
+  padding-bottom: 0px;
+}
+
+#battery.plugged {
+  color: @color6;
+}
+#battery.charging {
+  color: @color6;
+}
+#battery.critical {
+  color: @color3;
+}
+
+tooltip {
+  background: @background;
+  border: 1px solid @foreground;
+}
+tooltip * {
+  color: @foreground;
+  margin: 2px;
+  background: @background;
+}
+
+#pulseaudio-slider,
+#backlight-slider {
+  min-height: 80px;
+}
+
+#pulseaudio-slider slider,
+#backlight-slider slider {
+  background: @color8;
+  border-radius: 20%;
+}
+#pulseaudio-slider slider {
+  background: @audio_slider_color;
+}
+
+#pulseaudio-slider trough,
+#backlight-slider trough {
+  min-width: 8px;
+  background: transparent;
+}
+
+#pulseaudio-slider highlight {
+  background: @audio_slider_color;
+}
+#backlight-slider highlight {
+  background: @color8;
+}
+
+#custom-powermenu {
+  padding-bottom: 10px;
+}
+
+#custom-scale {
+  /* centered by the label rule above */
+}
+
+#custom-scale-075,
+#custom-scale-10,
+#custom-scale-133,
+#custom-scale-15 {
+  border-radius: 9px;
+  padding: 0px;
+}
+
+#custom-scale-075.active,
+#custom-scale-10.active,
+#custom-scale-133.active,
+#custom-scale-15.active {
+  background: @color1;
+  color: @color8;
+}
+
+/* Power menu popup styling */
+menu {
+  background: @background;
+  border: 2px solid @color2;
+  border-radius: 12px;
+}
+
+menu menuitem {
+  color: @foreground;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+menu menuitem:hover {
+  background: @color1;
+}
+
+menu separator {
+  background: @color2;
+}

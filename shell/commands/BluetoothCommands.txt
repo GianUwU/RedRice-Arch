@@ -1,0 +1,12 @@
+bluetoothctl
+devices
+scan on
+pair XX:XX:XX:XX:XX:XX:XX
+connect XX:XX
+trust XX:XX
+
+
+#for mulltiple bluetooth outputs:
+
+pactl load-module module-combine-sink sink_name=combined slaves=bluez_sink.DEVICE1,bluez_sink.DEVICE2
+# instead of DEVICE1 and DEVICE2 enter the MAC:ADRESS

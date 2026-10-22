@@ -1,0 +1,18 @@
+# General
+*~
+*.swp
+*.swo
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+/dot_config/hypr/scripts/__pycache__/
+/dot_config/waybar/scripts/__pycache__/
+/dot_config/swaync/__pycache__/
+__pycache__/
+
+# Keep binaries/shared libraries needed for the rice
+!/dot_local/lib/libdolphinglass.so
+!/dot_config/swaync/libswaync_helper.so
+!/dot_config/hypr/plugins/hypr-zstack/*.so

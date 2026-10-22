@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkMenu" id="menu">
+    <property name="reserve-toggle-size">False</property>
+    <property name="width-request">180</property>
+    <child>
+      <object class="GtkMenuItem" id="connect">
+        <property name="label">Connect Device...</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="disconnect">
+        <property name="label">Disconnect Device</property>
+      </object>
+    </child>
+  </object>
+</interface>

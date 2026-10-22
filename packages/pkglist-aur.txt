@@ -1,0 +1,14 @@
+antigravity-ide
+eww-git
+eww-git-debug
+minecraft-launcher
+mongodb-tools
+mycli
+nsnake
+nsnake-debug
+python-clickdc
+python-pyfzf
+python-sqlglot
+vesktop
+wireguard-go-git
+yay

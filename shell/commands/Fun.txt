@@ -1,0 +1,4 @@
+FinanceV3 list | cowsay -n
+aschiiquarium
+cmatrix
+figlet

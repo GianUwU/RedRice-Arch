@@ -1,0 +1,42 @@
+[
+  {
+    "name": "capsule",
+    "reload_style_on_change": true,
+    "layer": "top",
+    "position": "right",
+    "exclusive": false,
+    "margin-top": 20,
+    "margin-bottom": 20,
+    "margin-left": 0,
+    "margin-right": 3,
+    "fixed-center": true,
+    "spacing": 0,
+    "include": [
+      "~/.config/waybar/modules.json"
+    ],
+    "modules-left": [
+      "group/clock-capsule"
+    ],
+    "modules-center": [],
+    "modules-right": []
+  },
+  {
+    "name": "capsule",
+    "reload_style_on_change": true,
+    "layer": "top",
+    "position": "right",
+    "exclusive": false,
+    "margin-top": 20,
+    "margin-bottom": 20,
+    "margin-left": 0,
+    "margin-right": 3,
+    "fixed-center": true,
+    "spacing": 0,
+    "include": [
+      "~/.config/waybar/modules.json"
+    ],
+    "modules-left": [],
+    "modules-center": [],
+    "modules-right": []
+  }
+]

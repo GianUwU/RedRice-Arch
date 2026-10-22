@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkMenu" id="menu">
+    <property name="reserve-toggle-size">False</property>
+    <property name="width-request">180</property>
+    <child>
+      <object class="GtkMenuItem" id="connect">
+        <property name="label">Connect to Network...</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="open_nm">
+        <property name="label">Open Network Manager</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="disconnect">
+        <property name="label">Disconnect</property>
+      </object>
+    </child>
+  </object>
+</interface>
