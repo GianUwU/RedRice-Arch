@@ -41,6 +41,7 @@ RedRice-Arch/
 │   ├── nvim/                      # Neovim configuration
 │   ├── eww/                       # EWW widgets
 │   ├── quickshell/                # Quickshell components (hyprquickshot)
+│   ├── vesktop/                   # Vesktop & Vencord settings and themes
 │   ├── systemd/user/              # User systemd service units
 │   └── kdeglobals                 # CrimsonGlass KDE color scheme
 ├── dot_local/                     # Mapped to ~/.local/

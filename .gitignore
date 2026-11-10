@@ -16,3 +16,9 @@ __pycache__/
 !/dot_local/lib/libdolphinglass.so
 !/dot_config/swaync/libswaync_helper.so
 !/dot_config/hypr/plugins/hypr-zstack/*.so
+
+# Vesktop cache & runtime data
+/dot_config/vesktop/sessionData/
+/dot_config/vesktop/Crashpad/
+/dot_config/vesktop/Singleton*
+/dot_config/vesktop/state.json

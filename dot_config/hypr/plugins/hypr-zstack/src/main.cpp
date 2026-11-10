@@ -1,9 +1,13 @@
 #include <hyprland/src/plugins/PluginAPI.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/render/types.hpp>
-#include <hyprland/src/desktop/Workspace.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/render/Context.hpp>
+#include <hyprland/src/render/WindowRenderPresentation.hpp>
+#include <hyprland/src/workspace/HLWorkspace.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
+#include <hyprland/src/desktop/view/window/WindowPresentation.hpp>
 #include <hyprland/src/desktop/state/WindowState.hpp>
+#include <hyprland/src/desktop/state/ViewHitTester.hpp>
 #include <hyprland/src/output/Monitor.hpp>
 #include <hyprland/src/state/WorkspaceState.hpp>
 #include <hyprland/src/state/WorkspaceQuery.hpp>
@@ -20,18 +24,21 @@ inline HANDLE PHANDLE = nullptr;
 inline CHyprSignalListener g_workspaceActiveListener;
 inline CHyprSignalListener g_workspaceRemovedListener;
 
-typedef void (*origRenderWindow_t)(void* thisptr, PHLWINDOW pWindow, PHLMONITOR pMonitor, const Time::steady_tp& time, bool decorate, Render::eRenderPassMode mode, bool ignorePosition, bool standalone);
+using WORKSPACEID = uint32_t;
+constexpr WORKSPACEID WORKSPACE_INVALID = 0;
+
+typedef void (*origRenderWindow_t)(void* thisptr, Render::CRenderContext& ctx, PHLWINDOW pWindow, PHLMONITOR pMonitor, const Render::SWindowRenderPresentation& presentation, const Time::steady_tp& time, bool decorate, Render::eRenderPassMode mode, bool ignorePosition, bool standalone);
 inline origRenderWindow_t origRenderWindow = nullptr;
 
-typedef void (*origRenderWorkspaceWindows_t)(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& time);
+typedef void (*origRenderWorkspaceWindows_t)(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& time, Render::eSceneMode mode);
 inline origRenderWorkspaceWindows_t origRenderWorkspaceWindows = nullptr;
 inline CFunctionHook* g_pRenderWorkspaceWindowsHook = nullptr;
 
-typedef void (*origRenderWorkspaceWindowsFullscreen_t)(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& time);
+typedef void (*origRenderWorkspaceWindowsFullscreen_t)(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& time, Render::eSceneMode mode);
 inline origRenderWorkspaceWindowsFullscreen_t origRenderWorkspaceWindowsFullscreen = nullptr;
 inline CFunctionHook* g_pRenderWorkspaceWindowsFullscreenHook = nullptr;
 
-typedef void (*origStartAnimation_t)(PHLWORKSPACE, Animation::Workspace::eAnimationType, bool, bool, std::optional<std::string>);
+typedef void (*origStartAnimation_t)(PHLWORKSPACE ws, Animation::Workspace::eAnimationType type, bool left, bool instant, std::optional<std::string> style);
 inline origStartAnimation_t origStartAnimation = nullptr;
 inline CFunctionHook* g_pStartAnimationHook = nullptr;
 
@@ -49,10 +56,19 @@ struct SMonitorStack {
 
 inline std::unordered_map<MONITORID, SMonitorStack> g_mMonitorStacks;
 
+static WORKSPACEID getWorkspaceId(PHLWORKSPACE ws) {
+    if (!ws)
+        return WORKSPACE_INVALID;
+    auto num = ws->numberedID();
+    if (num.has_value())
+        return *num;
+    return WORKSPACE_INVALID;
+}
+
 static PHLWORKSPACE getWorkspace(WORKSPACEID id) {
-    if (id <= WORKSPACE_INVALID)
+    if (id == WORKSPACE_INVALID)
         return nullptr;
-    return State::CWorkspaceQuery(*State::workspaceState()).id(id).run();
+    return State::workspaceState()->query().numbered(::Workspace::SWorkspaceNumberedID(id)).run();
 }
 
 static PHLMONITOR getMonitor(MONITORID monId) {
@@ -77,15 +93,15 @@ struct SWorkspaceVisibilityGuard {
             if (!mon)
                 continue;
 
-            WORKSPACEID activeId  = mon->m_activeWorkspace ? mon->m_activeWorkspace->m_id : WORKSPACE_INVALID;
-            WORKSPACEID specialId = mon->m_activeSpecialWorkspace ? mon->m_activeSpecialWorkspace->m_id : WORKSPACE_INVALID;
+            WORKSPACEID activeId  = getWorkspaceId(mon->m_activeWorkspace);
+            WORKSPACEID specialId = getWorkspaceId(mon->m_activeSpecialWorkspace);
 
             for (auto const& ws : State::workspaceState()->workspacesCopy()) {
-                if (!ws || ws->inert())
+                if (!ws)
                     continue;
-                if (ws->m_monitor.lock() == mon && ws->m_id != activeId && ws->m_id != specialId) {
-                    if (ws->m_visible) {
-                        ws->m_visible = false;
+                if (ws->m_monitor.lock() == mon && getWorkspaceId(ws) != activeId && getWorkspaceId(ws) != specialId) {
+                    if (ws->visible()) {
+                        ws->setVisible(false);
                         hidden.push_back(ws);
                     }
                 }
@@ -95,8 +111,8 @@ struct SWorkspaceVisibilityGuard {
 
     ~SWorkspaceVisibilityGuard() {
         for (auto& ws : hidden) {
-            if (ws && !ws->inert())
-                ws->m_visible = true;
+            if (ws)
+                ws->setVisible(true);
         }
     }
 };
@@ -114,7 +130,7 @@ PHLWINDOW hkWindowAt(void* thisptr, const Vector2D& pos, uint16_t properties, PH
     if (!w)
         return nullptr;
 
-    if (w->m_pinned)
+    if (w->m_state & Desktop::View::WINDOW_STATE_PINNED)
         return w;
 
     auto ws = w->m_workspace;
@@ -129,7 +145,7 @@ PHLWINDOW hkWindowAt(void* thisptr, const Vector2D& pos, uint16_t properties, PH
     if (!pMonitor)
         return w;
 
-    if (ws->m_isSpecialWorkspace) {
+    if (ws->type() == Workspace::eWorkspaceType::SPECIAL) {
         if (pMonitor->m_activeSpecialWorkspace == ws)
             return w;
         return nullptr;
@@ -142,7 +158,7 @@ PHLWINDOW hkWindowAt(void* thisptr, const Vector2D& pos, uint16_t properties, PH
 }
 
 static bool isWorkspaceEmpty(PHLWORKSPACE pWorkspace) {
-    if (!pWorkspace || pWorkspace->inert())
+    if (!pWorkspace)
         return true;
 
     for (auto const& w : Desktop::windowState()->windows()) {
@@ -167,17 +183,17 @@ static void pruneStack(MONITORID monId, WORKSPACEID activeWsId) {
     std::reverse(deduped.begin(), deduped.end());
     mStack.stack = std::move(deduped);
 
-    // 2. Remove empty, inert, or monitor-migrated workspaces (except active)
+    // 2. Remove empty or monitor-migrated workspaces (except active)
     for (auto it = mStack.stack.begin(); it != mStack.stack.end();) {
         if (*it == activeWsId) {
             ++it;
             continue;
         }
         auto ws = getWorkspace(*it);
-        if (!ws || ws->inert() || (pMon && ws->m_monitor.lock() != pMon) || isWorkspaceEmpty(ws)) {
-            if (ws && !ws->inert()) {
+        if (!ws || (pMon && ws->m_monitor.lock() != pMon) || isWorkspaceEmpty(ws)) {
+            if (ws) {
                 ws->m_forceRendering = false;
-                ws->m_visible        = false;
+                ws->setVisible(false);
             }
             it = mStack.stack.erase(it);
         } else {
@@ -196,14 +212,14 @@ static void pruneStack(MONITORID monId, WORKSPACEID activeWsId) {
         }
 
         auto oldWs = getWorkspace(oldestId);
-        if (oldWs && !oldWs->inert() && oldWs->m_id != activeWsId) {
+        if (oldWs && oldestId != activeWsId) {
             oldWs->m_forceRendering = false;
-            oldWs->m_visible        = false;
+            oldWs->setVisible(false);
         }
     }
 }
 
-static void renderWindowsForWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now) {
+static void renderWindowsForWorkspace(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, Render::eSceneMode mode) {
     if (!thisptr || !pWorkspace || !pMonitor || !origRenderWindow)
         return;
 
@@ -212,15 +228,15 @@ static void renderWindowsForWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWOR
 
     if (fullscreenWindow) {
         // Render fullscreen window with decorate = true so no black background pass is drawn
-        origRenderWindow(thisptr, fullscreenWindow, pMonitor, now, true, Render::RENDER_PASS_ALL, false, false);
+        origRenderWindow(thisptr, ctx, fullscreenWindow, pMonitor, fullscreenWindow->presentation().renderPresentation(mode), now, true, Render::RENDER_PASS_ALL, false, false);
 
         // Render floating windows over fullscreen
         for (auto const& w : Desktop::windowState()->windows()) {
             if (!validMapped(w) || w->isHidden() || w->m_workspace != pWorkspace)
                 continue;
-            if (!w->m_isFloating || !w->shouldRenderOverFullscreen() || Fullscreen::controller()->isFullscreen(w))
+            if (!w->isFloating() || !w->shouldRenderOverFullscreen() || Fullscreen::controller()->isFullscreen(w))
                 continue;
-            origRenderWindow(thisptr, w, pMonitor, now, true, Render::RENDER_PASS_ALL, false, false);
+            origRenderWindow(thisptr, ctx, w, pMonitor, w->presentation().renderPresentation(mode), now, true, Render::RENDER_PASS_ALL, false, false);
         }
         return;
     }
@@ -231,9 +247,9 @@ static void renderWindowsForWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWOR
     for (auto const& w : Desktop::windowState()->windows()) {
         if (!validMapped(w) || w->isHidden() || w->m_workspace != pWorkspace)
             continue;
-        if (w->m_pinned)
+        if (w->m_state & Desktop::View::WINDOW_STATE_PINNED)
             continue;
-        if (w->m_isFloating)
+        if (w->isFloating())
             floating.push_back(w);
         else
             tiled.push_back(w);
@@ -241,42 +257,43 @@ static void renderWindowsForWorkspace(void* thisptr, PHLMONITOR pMonitor, PHLWOR
 
     // 1. Tiled main pass
     for (auto const& w : tiled) {
-        origRenderWindow(thisptr, w, pMonitor, now, true, Render::RENDER_PASS_MAIN, false, false);
+        origRenderWindow(thisptr, ctx, w, pMonitor, w->presentation().renderPresentation(mode), now, true, Render::RENDER_PASS_MAIN, false, false);
     }
 
     // 2. Tiled popup pass
     for (auto const& w : tiled) {
-        origRenderWindow(thisptr, w, pMonitor, now, true, Render::RENDER_PASS_POPUP, false, false);
+        origRenderWindow(thisptr, ctx, w, pMonitor, w->presentation().renderPresentation(mode), now, true, Render::RENDER_PASS_POPUP, false, false);
     }
 
     // 3. Floating windows
     for (auto const& w : floating) {
-        origRenderWindow(thisptr, w, pMonitor, now, true, Render::RENDER_PASS_ALL, false, false);
+        origRenderWindow(thisptr, ctx, w, pMonitor, w->presentation().renderPresentation(mode), now, true, Render::RENDER_PASS_ALL, false, false);
     }
 }
 
-static void renderStack(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now) {
+static void renderStack(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, Render::eSceneMode mode) {
     MONITORID monId = pMonitor->m_id;
     auto& mStack = getStackForMonitor(monId);
+    WORKSPACEID wsId = getWorkspaceId(pWorkspace);
 
     // Empty workspaces do not count towards the stack unless they are active/selected
-    pruneStack(monId, pWorkspace->m_id);
+    pruneStack(monId, wsId);
 
     // Ensure active workspace is at the top of the stack
-    if (mStack.stack.empty() || mStack.stack.back() != pWorkspace->m_id) {
-        std::erase(mStack.stack, pWorkspace->m_id);
-        mStack.stack.push_back(pWorkspace->m_id);
-        pruneStack(monId, pWorkspace->m_id);
+    if (mStack.stack.empty() || mStack.stack.back() != wsId) {
+        std::erase(mStack.stack, wsId);
+        mStack.stack.push_back(wsId);
+        pruneStack(monId, wsId);
     }
 
     // 1. Render stacked background workspaces (bottom to top, excluding active workspace)
     for (size_t i = 0; i < mStack.stack.size(); ++i) {
         WORKSPACEID id = mStack.stack[i];
-        if (id == pWorkspace->m_id)
+        if (id == wsId)
             continue;
 
         auto ws = getWorkspace(id);
-        if (!ws || ws->inert())
+        if (!ws)
             continue;
 
         // Keep background workspaces stationary at (0, 0)
@@ -290,8 +307,8 @@ static void renderStack(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorksp
         }
 
         ws->m_forceRendering = true;
-        ws->m_visible        = true;
-        renderWindowsForWorkspace(thisptr, pMonitor, ws, now);
+        ws->setVisible(true);
+        renderWindowsForWorkspace(thisptr, ctx, pMonitor, ws, now, mode);
     }
 
     // 2. Render active workspace on top stationary at (0, 0)
@@ -300,35 +317,35 @@ static void renderStack(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorksp
         pWorkspace->m_renderOffset->warp();
     }
     pWorkspace->m_forceRendering = true;
-    pWorkspace->m_visible        = true;
+    pWorkspace->setVisible(true);
 
-    renderWindowsForWorkspace(thisptr, pMonitor, pWorkspace, now);
+    renderWindowsForWorkspace(thisptr, ctx, pMonitor, pWorkspace, now, mode);
 }
 
-void hkRenderWorkspaceWindows(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now) {
-    if (g_inRenderHook || !pWorkspace || pWorkspace->m_isSpecialWorkspace || !pMonitor) {
-        origRenderWorkspaceWindows(thisptr, pMonitor, pWorkspace, now);
+void hkRenderWorkspaceWindows(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, Render::eSceneMode mode) {
+    if (g_inRenderHook || !pWorkspace || pWorkspace->type() == Workspace::eWorkspaceType::SPECIAL || !pMonitor) {
+        origRenderWorkspaceWindows(thisptr, ctx, pMonitor, pWorkspace, now, mode);
         return;
     }
 
     g_inRenderHook = true;
-    renderStack(thisptr, pMonitor, pWorkspace, now);
+    renderStack(thisptr, ctx, pMonitor, pWorkspace, now, mode);
     g_inRenderHook = false;
 }
 
-void hkRenderWorkspaceWindowsFullscreen(void* thisptr, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now) {
-    if (g_inRenderHook || !pWorkspace || pWorkspace->m_isSpecialWorkspace || !pMonitor) {
-        origRenderWorkspaceWindowsFullscreen(thisptr, pMonitor, pWorkspace, now);
+void hkRenderWorkspaceWindowsFullscreen(void* thisptr, Render::CRenderContext& ctx, PHLMONITOR pMonitor, PHLWORKSPACE pWorkspace, const Time::steady_tp& now, Render::eSceneMode mode) {
+    if (g_inRenderHook || !pWorkspace || pWorkspace->type() == Workspace::eWorkspaceType::SPECIAL || !pMonitor) {
+        origRenderWorkspaceWindowsFullscreen(thisptr, ctx, pMonitor, pWorkspace, now, mode);
         return;
     }
 
     g_inRenderHook = true;
-    renderStack(thisptr, pMonitor, pWorkspace, now);
+    renderStack(thisptr, ctx, pMonitor, pWorkspace, now, mode);
     g_inRenderHook = false;
 }
 
 void hkStartAnimation(PHLWORKSPACE ws, Animation::Workspace::eAnimationType type, bool left, bool instant, std::optional<std::string> style) {
-    if (g_inAnimHook || !ws || ws->m_isSpecialWorkspace) {
+    if (g_inAnimHook || !ws || ws->type() == Workspace::eWorkspaceType::SPECIAL) {
         origStartAnimation(ws, type, left, instant, style);
         return;
     }
@@ -343,23 +360,24 @@ void hkStartAnimation(PHLWORKSPACE ws, Animation::Workspace::eAnimationType type
     auto& mStack = getStackForMonitor(monId);
     auto pActiveWs = pMonitor->m_activeWorkspace;
 
-    if (pActiveWs && pActiveWs->m_isSpecialWorkspace) {
+    if (pActiveWs && pActiveWs->type() == Workspace::eWorkspaceType::SPECIAL) {
         origStartAnimation(ws, type, left, instant, style);
         return;
     }
 
     g_inAnimHook = true;
 
-    WORKSPACEID targetId = pActiveWs ? pActiveWs->m_id : WORKSPACE_INVALID;
+    WORKSPACEID targetId = getWorkspaceId(pActiveWs);
+    WORKSPACEID wsId = getWorkspaceId(ws);
 
     if (type == Animation::Workspace::ANIMATION_TYPE_OUT) {
         // ws is being switched away from
         const bool wsEmpty = isWorkspaceEmpty(ws);
         if (wsEmpty) {
             // Empty workspace left behind: remove from stack
-            std::erase(mStack.stack, ws->m_id);
+            std::erase(mStack.stack, wsId);
             ws->m_forceRendering = false;
-            ws->m_visible        = false;
+            ws->setVisible(false);
         } else {
             // Workspace has windows: keep anchored at (0, 0)
             *ws->m_renderOffset = Vector2D(0, 0);
@@ -367,28 +385,28 @@ void hkStartAnimation(PHLWORKSPACE ws, Animation::Workspace::eAnimationType type
             *ws->m_alpha = 1.0f;
             ws->m_alpha->warp();
             ws->m_forceRendering = true;
-            ws->m_visible        = true;
+            ws->setVisible(true);
 
             // Ensure ws is in the stack
-            if (std::find(mStack.stack.begin(), mStack.stack.end(), ws->m_id) == mStack.stack.end()) {
-                mStack.stack.push_back(ws->m_id);
+            if (std::find(mStack.stack.begin(), mStack.stack.end(), wsId) == mStack.stack.end()) {
+                mStack.stack.push_back(wsId);
             }
         }
         pruneStack(monId, targetId);
     } else {
         // ANIMATION_TYPE_IN: ws is incoming active/selected workspace
         // Move selected workspace to the top of the stack and show instantly at (0, 0)
-        std::erase(mStack.stack, ws->m_id);
-        mStack.stack.push_back(ws->m_id);
+        std::erase(mStack.stack, wsId);
+        mStack.stack.push_back(wsId);
 
         *ws->m_renderOffset = Vector2D(0, 0);
         ws->m_renderOffset->warp();
         *ws->m_alpha = 1.0f;
         ws->m_alpha->warp();
         ws->m_forceRendering = true;
-        ws->m_visible        = true;
+        ws->setVisible(true);
 
-        pruneStack(monId, ws->m_id);
+        pruneStack(monId, wsId);
     }
 
     g_inAnimHook = false;
@@ -401,14 +419,14 @@ static SDispatchResult dispatchRemoveFromStack(std::string args) {
 
     WORKSPACEID removeId = WORKSPACE_INVALID;
     try {
-        removeId = std::stoll(args);
+        removeId = std::stoul(args);
     } catch (...) {
-        auto ws = State::CWorkspaceQuery(*State::workspaceState()).name(args).run();
+        auto ws = State::workspaceState()->query().address(args).run();
         if (ws)
-            removeId = ws->m_id;
+            removeId = getWorkspaceId(ws);
     }
 
-    if (removeId <= WORKSPACE_INVALID) {
+    if (removeId == WORKSPACE_INVALID) {
         return SDispatchResult{.passEvent = false, .success = false, .error = "Invalid workspace ID"};
     }
 
@@ -418,14 +436,14 @@ static SDispatchResult dispatchRemoveFromStack(std::string args) {
             mStack.stack.erase(it);
 
             auto ws = getWorkspace(removeId);
-            if (ws && !ws->inert()) {
+            if (ws) {
                 ws->m_forceRendering = false;
-                ws->m_visible        = false;
+                ws->setVisible(false);
             }
 
             for (auto& mon : State::monitorState()->monitors()) {
                 if (mon && mon->m_id == monId) {
-                    if (mon->m_activeWorkspace && mon->m_activeWorkspace->m_id == removeId) {
+                    if (mon->m_activeWorkspace && getWorkspaceId(mon->m_activeWorkspace) == removeId) {
                         WORKSPACEID fallbackId = mStack.stack.empty() ? 1 : mStack.stack.back();
                         HyprlandAPI::invokeHyprctlCommand("dispatch", "workspace " + std::to_string(fallbackId));
                     } else if (g_pHyprRenderer) {
@@ -442,13 +460,13 @@ static SDispatchResult dispatchRemoveFromStack(std::string args) {
 static SDispatchResult dispatchClearStack(std::string args) {
     for (auto& [monId, mStack] : g_mMonitorStacks) {
         auto pMon = getMonitor(monId);
-        WORKSPACEID activeId = (pMon && pMon->m_activeWorkspace) ? pMon->m_activeWorkspace->m_id : WORKSPACE_INVALID;
+        WORKSPACEID activeId = (pMon && pMon->m_activeWorkspace) ? getWorkspaceId(pMon->m_activeWorkspace) : WORKSPACE_INVALID;
         for (auto id : mStack.stack) {
             if (id != activeId) {
                 auto ws = getWorkspace(id);
-                if (ws && !ws->inert()) {
+                if (ws) {
                     ws->m_forceRendering = false;
-                    ws->m_visible        = false;
+                    ws->setVisible(false);
                 }
             }
         }
@@ -470,12 +488,12 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() {
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     PHANDLE = handle;
 
-    origRenderWindow = (origRenderWindow_t)dlsym(RTLD_DEFAULT, "_ZN6Render13IHyprRenderer12renderWindowEN9Hyprutils6Memory14CSharedPointerIN7Desktop4View7CWindowEEENS3_IN7Monitor8CMonitorEEERKNSt6chrono10time_pointINSB_3_V212steady_clockENSB_8durationIlSt5ratioILl1ELl1000000000EEEEEEbNS_15eRenderPassModeEbb");
+    origRenderWindow = (origRenderWindow_t)dlsym(RTLD_DEFAULT, "_ZN6Render13IHyprRenderer12renderWindowERNS_14CRenderContextEN9Hyprutils6Memory14CSharedPointerIN7Desktop4View7CWindowEEENS5_IN7Monitor8CMonitorEEERKNS_25SWindowRenderPresentationERKNSt6chrono10time_pointINSG_3_V212steady_clockENSG_8durationIlSt5ratioILl1ELl1000000000EEEEEEbNS_15eRenderPassModeEbb");
     if (!origRenderWindow) {
         return {"hypr-zstack", "Failed dlsym renderWindow", "Gian", "2.0"};
     }
 
-    void* fnRenderWindows = dlsym(RTLD_DEFAULT, "_ZN6Render13IHyprRenderer22renderWorkspaceWindowsEN9Hyprutils6Memory14CSharedPointerIN7Monitor8CMonitorEEENS3_I10CWorkspaceEERKNSt6chrono10time_pointINS9_3_V212steady_clockENS9_8durationIlSt5ratioILl1ELl1000000000EEEEEE");
+    void* fnRenderWindows = dlsym(RTLD_DEFAULT, "_ZN6Render13IHyprRenderer22renderWorkspaceWindowsERNS_14CRenderContextEN9Hyprutils6Memory14CSharedPointerIN7Monitor8CMonitorEEENS5_IN9Workspace12CHLWorkspaceEEERKNSt6chrono10time_pointINSC_3_V212steady_clockENSC_8durationIlSt5ratioILl1ELl1000000000EEEEEENS_10eSceneModeE");
     if (!fnRenderWindows) {
         return {"hypr-zstack", "Failed dlsym renderWorkspaceWindows", "Gian", "2.0"};
     }
@@ -486,7 +504,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
     origRenderWorkspaceWindows = (origRenderWorkspaceWindows_t)g_pRenderWorkspaceWindowsHook->m_original;
 
-    void* fnRenderWindowsFs = dlsym(RTLD_DEFAULT, "_ZN6Render13IHyprRenderer32renderWorkspaceWindowsFullscreenEN9Hyprutils6Memory14CSharedPointerIN7Monitor8CMonitorEEENS3_I10CWorkspaceEERKNSt6chrono10time_pointINS9_3_V212steady_clockENS9_8durationIlSt5ratioILl1ELl1000000000EEEEEE");
+    void* fnRenderWindowsFs = dlsym(RTLD_DEFAULT, "_ZN6Render13IHyprRenderer32renderWorkspaceWindowsFullscreenERNS_14CRenderContextEN9Hyprutils6Memory14CSharedPointerIN7Monitor8CMonitorEEENS5_IN9Workspace12CHLWorkspaceEEERKNSt6chrono10time_pointINSC_3_V212steady_clockENSC_8durationIlSt5ratioILl1ELl1000000000EEEEEENS_10eSceneModeE");
     if (!fnRenderWindowsFs) {
         return {"hypr-zstack", "Failed dlsym renderWorkspaceWindowsFullscreen", "Gian", "2.0"};
     }
@@ -497,7 +515,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
     origRenderWorkspaceWindowsFullscreen = (origRenderWorkspaceWindowsFullscreen_t)g_pRenderWorkspaceWindowsFullscreenHook->m_original;
 
-    void* fnAnim = dlsym(RTLD_DEFAULT, "_ZN9Animation9Workspace14startAnimationEN9Hyprutils6Memory14CSharedPointerI10CWorkspaceEENS0_14eAnimationTypeEbbSt8optionalINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEE");
+    void* fnAnim = dlsym(RTLD_DEFAULT, "_ZN9Animation9Workspace14startAnimationEN9Hyprutils6Memory14CSharedPointerIN9Workspace12CHLWorkspaceEEENS0_14eAnimationTypeEbbSt8optionalINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEE");
     if (!fnAnim) {
         return {"hypr-zstack", "Failed dlsym startAnimation", "Gian", "2.1"};
     }
@@ -523,7 +541,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         auto ws = wsRef.lock();
         if (!ws)
             return;
-        WORKSPACEID id = ws->m_id;
+        WORKSPACEID id = getWorkspaceId(ws);
         for (auto& [mon, mStack] : g_mMonitorStacks) {
             std::erase(mStack.stack, id);
         }
@@ -536,12 +554,12 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         if (mon && mon->m_activeWorkspace) {
             auto& mStack = getStackForMonitor(mon->m_id);
             if (mStack.stack.empty())
-                mStack.stack.push_back(mon->m_activeWorkspace->m_id);
+                mStack.stack.push_back(getWorkspaceId(mon->m_activeWorkspace));
         }
     }
 
     g_workspaceActiveListener = Event::bus()->m_events.workspace.active.listen([](PHLWORKSPACE ws) {
-        if (!ws || ws->inert() || ws->m_isSpecialWorkspace)
+        if (!ws || ws->type() == Workspace::eWorkspaceType::SPECIAL)
             return;
 
         auto pMonitor = ws->m_monitor.lock();
@@ -550,20 +568,21 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
         MONITORID monId = pMonitor->m_id;
         auto& mStack = getStackForMonitor(monId);
+        WORKSPACEID wsId = getWorkspaceId(ws);
 
         // Move to top of stack
-        std::erase(mStack.stack, ws->m_id);
-        mStack.stack.push_back(ws->m_id);
+        std::erase(mStack.stack, wsId);
+        mStack.stack.push_back(wsId);
 
         // Prune empty background workspaces & enforce stack depth
-        pruneStack(monId, ws->m_id);
+        pruneStack(monId, wsId);
 
         *ws->m_renderOffset = Vector2D(0, 0);
         ws->m_renderOffset->warp();
         *ws->m_alpha = 1.0f;
         ws->m_alpha->warp();
         ws->m_forceRendering = true;
-        ws->m_visible        = true;
+        ws->setVisible(true);
     });
 
     return {"hypr-zstack", "Z-axis Workspace Stacking Plugin (Depth 5)", "Gian", "5.0"};
@@ -590,8 +609,9 @@ APICALL EXPORT void PLUGIN_EXIT() {
     for (auto& [mon, mStack] : g_mMonitorStacks) {
         for (auto id : mStack.stack) {
             auto ws = getWorkspace(id);
-            if (ws && !ws->inert()) {
+            if (ws) {
                 ws->m_forceRendering = false;
+                ws->setVisible(false);
             }
         }
     }

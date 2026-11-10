@@ -31,7 +31,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("waybar")
     hl.exec_cmd("kitty -1 --start-as=hidden")
     hl.exec_cmd("rclone mount GoogleDrive: ~/drive/")
-    hl.exec_cmd("hyprctl plugin load ~/.config/hypr/plugins/hypr-zstack/hypr-zstack-v5.so")
+    hl.exec_cmd("hyprctl plugin load ~/.config/hypr/plugins/hypr-zstack/hypr-zstack.so")
 end)
 
 -------------------------------
@@ -418,6 +418,22 @@ hl.layer_rule({
     name = "capsule_noanim",
     match = {
         namespace = "^capsule$",
+    },
+    no_anim = true,
+})
+
+hl.layer_rule({
+    name = "selection_noanim",
+    match = {
+        namespace = "^selection$",
+    },
+    no_anim = true,
+})
+
+hl.layer_rule({
+    name = "hyprpicker_noanim",
+    match = {
+        namespace = "^hyprpicker$",
     },
     no_anim = true,
 })

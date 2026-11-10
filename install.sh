@@ -86,7 +86,7 @@ esac
 # 3. Deploy User Configurations (~/.config)
 # ------------------------------------------------------------------------------
 if confirm "Deploy dotfiles to $TARGET_HOME/.config?"; then
-    mkdir -p "$TARGET_HOME/.config/quickshell" "$TARGET_HOME/.config/nvim" "$TARGET_HOME/.config/systemd/user"
+    mkdir -p "$TARGET_HOME/.config/quickshell" "$TARGET_HOME/.config/nvim" "$TARGET_HOME/.config/systemd/user" "$TARGET_HOME/.config/vesktop"
 
     # Replace hardcoded /home/gian with current user's home directory if different
     if [ "$TARGET_HOME" != "/home/gian" ]; then
@@ -132,6 +132,25 @@ if confirm "Deploy dotfiles to $TARGET_HOME/.config?"; then
         ln -s "$SCRIPT_DIR/dot_config/quickshell/hyprquickshot" "$TARGET_HOME/.config/quickshell/hyprquickshot"
     else
         cp -r "$SCRIPT_DIR/dot_config/quickshell/hyprquickshot" "$TARGET_HOME/.config/quickshell/hyprquickshot"
+    fi
+
+    # vesktop
+    mkdir -p "$TARGET_HOME/.config/vesktop"
+    if [ "$USE_SYMLINKS" = true ]; then
+        [ -e "$TARGET_HOME/.config/vesktop/settings.json" ] && [ ! -L "$TARGET_HOME/.config/vesktop/settings.json" ] && mv "$TARGET_HOME/.config/vesktop/settings.json" "$TARGET_HOME/.config/vesktop/settings.json.backup.$(date +%s)"
+        [ -L "$TARGET_HOME/.config/vesktop/settings.json" ] && rm -f "$TARGET_HOME/.config/vesktop/settings.json"
+        ln -s "$SCRIPT_DIR/dot_config/vesktop/settings.json" "$TARGET_HOME/.config/vesktop/settings.json"
+
+        for vdir in settings themes; do
+            target="$TARGET_HOME/.config/vesktop/$vdir"
+            [ -e "$target" ] && [ ! -L "$target" ] && mv "$target" "${target}.backup.$(date +%s)"
+            [ -L "$target" ] && rm -rf "$target"
+            ln -s "$SCRIPT_DIR/dot_config/vesktop/$vdir" "$target"
+        done
+    else
+        cp "$SCRIPT_DIR/dot_config/vesktop/settings.json" "$TARGET_HOME/.config/vesktop/settings.json"
+        cp -r "$SCRIPT_DIR/dot_config/vesktop/settings" "$TARGET_HOME/.config/vesktop/"
+        cp -r "$SCRIPT_DIR/dot_config/vesktop/themes" "$TARGET_HOME/.config/vesktop/"
     fi
 
     # systemd user

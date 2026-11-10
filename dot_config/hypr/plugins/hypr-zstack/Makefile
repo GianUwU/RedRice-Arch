@@ -4,6 +4,7 @@ TARGET := hypr-zstack.so
 SRC := src/main.cpp
 
 all: $(TARGET)
+	cp $(TARGET) hypr-zstack-v5.so
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $< -o $@

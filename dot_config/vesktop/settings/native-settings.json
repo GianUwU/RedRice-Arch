@@ -1,0 +1,11 @@
+{
+    "plugins": {},
+    "customCspRules": {
+        "gian.ink": [
+            "connect-src",
+            "img-src",
+            "style-src",
+            "font-src"
+        ]
+    }
+}
