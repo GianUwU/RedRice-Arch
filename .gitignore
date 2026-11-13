@@ -23,5 +23,11 @@ __pycache__/
 /dot_config/vesktop/Singleton*
 /dot_config/vesktop/state.json
 
-# system/ boot configs are tracked (grub, mkinitcpio.conf, linux.preset, grub.d/)
-# These are templates — the installer copies them to /etc/
+# system/ boot configs are machine-specific — NOT tracked in git.
+# They contain hardcoded UUIDs, local paths, and hardware-specific ACPI quirks.
+# The installer handles their absence gracefully (all checks are optional).
+# To use: copy your own /etc/default/grub → system/grub, etc., locally.
+system/grub
+system/grub.d/
+system/mkinitcpio.conf
+system/linux.preset

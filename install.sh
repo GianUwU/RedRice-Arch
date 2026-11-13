@@ -281,18 +281,27 @@ if confirm "Enable core system and user services?"; then
 fi
 
 # ------------------------------------------------------------------------------
-# 9. GRUB Bootloader Configuration
+# 9. GRUB Bootloader Configuration  (optional — files not included in repo)
 # ------------------------------------------------------------------------------
-if confirm "Apply GRUB configuration (/etc/default/grub) and regenerate GRUB config?"; then
+# system/grub, system/grub.d/40_custom are gitignored because they contain
+# machine-specific UUIDs and hardware ACPI quirks.
+# To use: copy your own /etc/default/grub into system/grub before running.
+# The step will still offer to run grub-mkconfig even without the template.
+if confirm "Apply GRUB configuration and regenerate grub.cfg?"; then
     if [ -f "$SCRIPT_DIR/system/grub" ]; then
         sudo cp "$SCRIPT_DIR/system/grub" /etc/default/grub
-        log_info "Installed /etc/default/grub"
+        log_success "Installed /etc/default/grub from repo template."
+    else
+        log_warn "system/grub not found — skipping /etc/default/grub copy."
+        log_warn "Edit /etc/default/grub manually if needed, then re-run grub-mkconfig."
     fi
 
     if [ -f "$SCRIPT_DIR/system/grub.d/40_custom" ]; then
         sudo cp "$SCRIPT_DIR/system/grub.d/40_custom" /etc/grub.d/40_custom
         sudo chmod +x /etc/grub.d/40_custom
-        log_info "Installed custom GRUB entries (40_custom)"
+        log_success "Installed custom GRUB entries (40_custom)."
+    else
+        log_warn "system/grub.d/40_custom not found — skipping custom entries."
     fi
 
     if command -v grub-mkconfig >/dev/null 2>&1; then
@@ -300,22 +309,29 @@ if confirm "Apply GRUB configuration (/etc/default/grub) and regenerate GRUB con
         sudo grub-mkconfig -o /boot/grub/grub.cfg
         log_success "GRUB config updated."
     else
-        log_warn "grub-mkconfig not found — skipping GRUB config regeneration."
+        log_warn "grub-mkconfig not found — is grub installed?"
     fi
 fi
 
 # ------------------------------------------------------------------------------
-# 10. mkinitcpio — Initramfs Configuration
+# 10. mkinitcpio — Initramfs Configuration  (optional — files not included in repo)
 # ------------------------------------------------------------------------------
-if confirm "Apply mkinitcpio.conf and regenerate initramfs?"; then
+# system/mkinitcpio.conf and system/linux.preset are gitignored (machine-specific).
+# To use: copy your /etc/mkinitcpio.conf into system/mkinitcpio.conf before running.
+# If files are absent, the step will only rebuild the initramfs with existing config.
+if confirm "Apply mkinitcpio config and regenerate initramfs?"; then
     if [ -f "$SCRIPT_DIR/system/mkinitcpio.conf" ]; then
         sudo cp "$SCRIPT_DIR/system/mkinitcpio.conf" /etc/mkinitcpio.conf
-        log_info "Installed /etc/mkinitcpio.conf"
+        log_success "Installed /etc/mkinitcpio.conf from repo template."
+    else
+        log_warn "system/mkinitcpio.conf not found — using existing /etc/mkinitcpio.conf."
     fi
 
     if [ -f "$SCRIPT_DIR/system/linux.preset" ]; then
         sudo cp "$SCRIPT_DIR/system/linux.preset" /etc/mkinitcpio.d/linux.preset
-        log_info "Installed /etc/mkinitcpio.d/linux.preset"
+        log_success "Installed /etc/mkinitcpio.d/linux.preset from repo template."
+    else
+        log_warn "system/linux.preset not found — using existing preset."
     fi
 
     log_info "Regenerating initramfs (mkinitcpio -P)..."

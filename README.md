@@ -138,10 +138,10 @@ RedRice-Arch/
 │   │   └── purple_leaves.conf          # Astronaut theme variant config
 │   ├── udev/
 │   │   └── 90-disable-mouse-wakeup.rules  # Suppress Logitech + ASUS touchpad wakeup
-│   ├── grub                            # /etc/default/grub — GRUB_CMDLINE, Tela theme, ACPI quirk
-│   ├── grub.d/40_custom                # Custom GRUB entry: GParted Live ISO loopback
-│   ├── mkinitcpio.conf                 # Hooks: systemd/udev/kms/autodetect; Modules: vmd/nvme/ext4
-│   └── linux.preset                    # mkinitcpio preset for 'linux' kernel
+│   ├── grub                            # (gitignored) /etc/default/grub — machine-specific, bring your own
+│   ├── grub.d/40_custom                # (gitignored) custom GRUB entry — contains filesystem UUID
+│   ├── mkinitcpio.conf                 # (gitignored) hooks + modules — machine-specific
+│   └── linux.preset                    # (gitignored) mkinitcpio preset — machine-specific
 └── shell/                              # User shell configuration
     ├── .bashrc                         # Aliases, zoxide, NVM, SDKMAN, redrice-sync
     ├── .bash_profile
@@ -190,8 +190,8 @@ The installer will interactively prompt before each step and supports both **sym
 | **6. SDDM** | Configures SDDM (`sddm.conf` + `virtualkbd.conf`), clones `sddm-astronaut-theme`, installs `purple_leaves.conf` variant + wallpaper, enables `sddm.service` |
 | **7. Udev rules** | Disables Logitech mouse + ASUS touchpad wakeup-from-suspend |
 | **8. Services** | Enables `NetworkManager`, `bluetooth`, `sddm`, `swaync-proxy`, `swaync`, `wireplumber` |
-| **9. GRUB** | Applies `/etc/default/grub` (Tela theme, ACPI quirk, zswap off), installs custom GParted Live entry, runs `grub-mkconfig` |
-| **10. mkinitcpio** | Applies `mkinitcpio.conf` (systemd hooks, vmd/nvme/ext4 modules), applies `linux.preset`, rebuilds initramfs via `mkinitcpio -P` |
+| **9. GRUB** | *(optional — gitignored, bring your own)* Copies `system/grub` → `/etc/default/grub` if present, copies `40_custom`, runs `grub-mkconfig` |
+| **10. mkinitcpio** | *(optional — gitignored, bring your own)* Copies `system/mkinitcpio.conf` + `linux.preset` if present, always runs `mkinitcpio -P` |
 | **11. Secure Boot** | Runs `sbctl` — creates keys (if in Setup Mode), enrols with Microsoft keys, registers + signs all EFI binaries, runs `sbctl sign-all -g` |
 
 > **Note:** After installation, reboot or restart your Wayland session. If you use the symlink deploy mode, any future changes to the repo are immediately live.
