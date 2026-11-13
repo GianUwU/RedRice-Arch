@@ -22,3 +22,6 @@ __pycache__/
 /dot_config/vesktop/Crashpad/
 /dot_config/vesktop/Singleton*
 /dot_config/vesktop/state.json
+
+# system/ boot configs are tracked (grub, mkinitcpio.conf, linux.preset, grub.d/)
+# These are templates — the installer copies them to /etc/

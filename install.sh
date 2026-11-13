@@ -280,7 +280,107 @@ if confirm "Enable core system and user services?"; then
     log_success "Services enabled."
 fi
 
-# Fix ownership
-chown -hR "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config" "$TARGET_HOME/.local" "$TARGET_HOME/.bashrc" "$TARGET_HOME/.bash_profile" "$TARGET_HOME/Commands" 2>/dev/null || true
+# ------------------------------------------------------------------------------
+# 9. GRUB Bootloader Configuration
+# ------------------------------------------------------------------------------
+if confirm "Apply GRUB configuration (/etc/default/grub) and regenerate GRUB config?"; then
+    if [ -f "$SCRIPT_DIR/system/grub" ]; then
+        sudo cp "$SCRIPT_DIR/system/grub" /etc/default/grub
+        log_info "Installed /etc/default/grub"
+    fi
 
-echo -e "${GREEN}${BOLD}Setup completed successfully! Enjoy RedRice-Arch.${NC}"
+    if [ -f "$SCRIPT_DIR/system/grub.d/40_custom" ]; then
+        sudo cp "$SCRIPT_DIR/system/grub.d/40_custom" /etc/grub.d/40_custom
+        sudo chmod +x /etc/grub.d/40_custom
+        log_info "Installed custom GRUB entries (40_custom)"
+    fi
+
+    if command -v grub-mkconfig >/dev/null 2>&1; then
+        log_info "Regenerating GRUB config..."
+        sudo grub-mkconfig -o /boot/grub/grub.cfg
+        log_success "GRUB config updated."
+    else
+        log_warn "grub-mkconfig not found — skipping GRUB config regeneration."
+    fi
+fi
+
+# ------------------------------------------------------------------------------
+# 10. mkinitcpio — Initramfs Configuration
+# ------------------------------------------------------------------------------
+if confirm "Apply mkinitcpio.conf and regenerate initramfs?"; then
+    if [ -f "$SCRIPT_DIR/system/mkinitcpio.conf" ]; then
+        sudo cp "$SCRIPT_DIR/system/mkinitcpio.conf" /etc/mkinitcpio.conf
+        log_info "Installed /etc/mkinitcpio.conf"
+    fi
+
+    if [ -f "$SCRIPT_DIR/system/linux.preset" ]; then
+        sudo cp "$SCRIPT_DIR/system/linux.preset" /etc/mkinitcpio.d/linux.preset
+        log_info "Installed /etc/mkinitcpio.d/linux.preset"
+    fi
+
+    log_info "Regenerating initramfs (mkinitcpio -P)..."
+    sudo mkinitcpio -P
+    log_success "Initramfs rebuilt."
+fi
+
+# ------------------------------------------------------------------------------
+# 11. Secure Boot — sbctl Setup
+# ------------------------------------------------------------------------------
+if confirm "Set up Secure Boot signing with sbctl?"; then
+    if ! command -v sbctl >/dev/null 2>&1; then
+        log_warn "sbctl not found — install it first (included in pkglist-repo.txt)."
+    else
+        SBCTL_STATUS="$(sbctl status 2>/dev/null)"
+        log_info "Current sbctl status:"
+        echo "$SBCTL_STATUS"
+
+        if echo "$SBCTL_STATUS" | grep -q "Setup Mode.*Enabled"; then
+            log_info "UEFI is in Setup Mode. Creating and enrolling Secure Boot keys..."
+            sudo sbctl create-keys
+            sudo sbctl enrol-keys -m
+            log_success "Secure Boot keys created and enrolled (Microsoft keys retained)."
+        else
+            log_warn "UEFI is NOT in Setup Mode."
+            log_warn "To enrol new keys: enter firmware settings → clear Secure Boot keys → reboot → re-run this step."
+        fi
+
+        log_info "Registering EFI binaries for automatic signing..."
+        # Register all standard EFI targets
+        for efi_path in \
+            /boot/EFI/GRUB/grubx64.efi \
+            /boot/EFI/BOOT/BOOTX64.EFI \
+            /boot/vmlinuz-linux \
+            /usr/lib/systemd/boot/efi/systemd-bootx64.efi; do
+            if [ -f "$efi_path" ]; then
+                sudo sbctl sign -s "$efi_path" 2>/dev/null && \
+                    log_success "Registered + signed: $efi_path" || \
+                    log_warn "Could not sign: $efi_path"
+            fi
+        done
+
+        log_info "Running sbctl sign-all -g (signs all registered files)..."
+        sudo sbctl sign-all -g
+        log_info "Verifying signed files..."
+        sbctl verify || true
+
+        log_success "Secure Boot setup complete."
+        log_warn "Remember to ENABLE Secure Boot in your UEFI firmware settings to activate it."
+    fi
+fi
+
+# Fix ownership (run last, after all files are deployed)
+chown -hR "$TARGET_USER:$TARGET_USER" \
+    "$TARGET_HOME/.config" \
+    "$TARGET_HOME/.local" \
+    "$TARGET_HOME/.bashrc" \
+    "$TARGET_HOME/.bash_profile" \
+    "$TARGET_HOME/Commands" 2>/dev/null || true
+
+echo -e "${GREEN}${BOLD}"
+echo "  ____           _ ____  _             "
+echo " |  _ \ ___   __| |  _ \(_) ___ ___    "
+echo " | |_) / _ \ / _\` | |_) | |/ __/ _ \   "
+echo " |  _ <  __/| (_| |  _ <| | (_|  __/   "
+echo " |_| \_\___| \__,_|_| \_\_|\___\___|   "
+echo "   Setup completed! Enjoy your rice.   "
+echo -e "${NC}"

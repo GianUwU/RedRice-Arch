@@ -1,0 +1,20 @@
+#!/bin/sh
+exec tail -n +3 $0
+# This file provides an easy way to add custom menu entries.  Simply type the
+# menu entries you want to add after this comment.  Be careful not to change
+# the "exec tail" line above.
+
+menuentry "GParted Live (Boot to RAM)" --class gpart --class gparted --class gnu-linux --class os {
+    load_video
+    insmod gzio
+    insmod part_gpt
+    insmod ext2
+    insmod loopback
+    search --no-floppy --fs-uuid --set=root 010aa8cc-b333-4efa-ac4b-5d42bc2a9eea
+    set isofile="/gparted-live.iso"
+    loopback loop ($root)$isofile
+    echo "Loading GParted Live kernel..."
+    linux (loop)/live/vmlinuz boot=live config union=overlay username=user components noswap noeject toram=filesystem.squashfs findiso=$isofile ip= net.ifnames=0
+    echo "Loading GParted Live ramdisk..."
+    initrd (loop)/live/initrd.img
+}

@@ -78,9 +78,11 @@ hl.config({
 
         blur = {
             enabled = true,
-            size = 3,
-            passes = 2,
+            size = 2,
+            passes = 3,
+            noise = 0.07,
             vibrancy = 0.2,
+            brightness = 1.2,
             ignore_opacity = true,
             new_optimizations = false,
             xray = false,
@@ -88,6 +90,8 @@ hl.config({
     },
 
     misc = {
+        enable_swallow = true,
+        swallow_regex = "^(kitty)$",
         disable_splash_rendering = true,
         disable_hyprland_logo = true,
         animate_manual_resizes = false,
@@ -125,6 +129,7 @@ hl.curve("snappy",         { type = "bezier", points = { {0.2, 0.9}, {0.1, 1.0} 
 hl.curve("pop",            { type = "bezier", points = { {0.05, 0.9}, {0.1, 1.05} } })
 
 -- Animation Trees (speed is in deciseconds: 1 = 100ms)
+hl.animation({ leaf = "borderangle", enabled = true, speed = 100, bezier = "linear", style = "loop" })
 hl.animation({ leaf = "global",        enabled = true,  speed = 10,  bezier = "default" })
 hl.animation({ leaf = "border",        enabled = true,  speed = 3.5, bezier = "easeOutCubic" })
 hl.animation({ leaf = "windows",       enabled = true,  speed = 3,   bezier = "snappy" })
@@ -301,6 +306,17 @@ hl.bind("Super_R", track_super_key, { non_consuming = true })
 ----------------------------------
 ---- WORKSPACE & WINDOW RULES ----
 ----------------------------------
+
+
+hl.window_rule({
+    name = "pip_auto_float",
+    match = {
+        title = "(?i)^Picture[- ]in[- ]Picture$",
+    },
+    float = true,
+    pin = true,
+    min_size = "640 360",
+})
 
 -- Special cmd scratchpad on-created rule
 hl.workspace_rule({

@@ -183,6 +183,9 @@ class NotificationProxy:
                         packed_hints[k] = GLib.Variant("d", v)
 
                 # Forward to internal swaync
+                if replaces_id > 0:
+                    self.cancel_timer(replaces_id)
+
                 fwd_params = GLib.Variant("(susssasa{sv}i)", (
                     app_name,
                     replaces_id,
@@ -216,9 +219,6 @@ class NotificationProxy:
                         remaining = max(0.0, 1.0 - (elapsed / duration_sec))
                         val = int(remaining * 100)
 
-                        timer_hints = dict(packed_hints)
-                        timer_hints["value"] = GLib.Variant("i", val)
-
                         if remaining <= 0:
                             self.cancel_timer(noti_id)
                             try:
@@ -230,6 +230,16 @@ class NotificationProxy:
                             except Exception:
                                 pass
                             return False
+
+                        timer_entry = self.active_timers.get(noti_id)
+                        if timer_entry and timer_entry.get("last_val") == val:
+                            return True
+
+                        if timer_entry is not None:
+                            timer_entry["last_val"] = val
+
+                        timer_hints = dict(packed_hints)
+                        timer_hints["value"] = GLib.Variant("i", val)
 
                         try:
                             update_params = GLib.Variant("(susssasa{sv}i)", (
@@ -256,7 +266,8 @@ class NotificationProxy:
                     self.active_timers[noti_id] = {
                         "timer_src": src_id,
                         "start_time": start_time,
-                        "duration": duration_sec
+                        "duration": duration_sec,
+                        "last_val": 100
                     }
         except Exception as e:
             print("Error handling method call:", e, flush=True)

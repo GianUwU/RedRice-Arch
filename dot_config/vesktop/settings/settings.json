@@ -5,7 +5,6 @@
     "themeLinks": [],
     "eagerPatches": false,
     "enabledThemes": [
-        "NotAnotherAnimeTheme.theme.css",
         "RadialStatus.theme.css",
         "ClearVision-v7-BetterDiscord.theme.css"
     ],
@@ -160,9 +159,6 @@
         "Experiments": {
             "enabled": false
         },
-        "ExpressionCloner": {
-            "enabled": false
-        },
         "F8Break": {
             "enabled": false
         },
@@ -242,9 +238,6 @@
             "enabled": false
         },
         "KeepCurrentChannel": {
-            "enabled": false
-        },
-        "LastFMRichPresence": {
             "enabled": false
         },
         "LoadingQuotes": {
@@ -554,6 +547,12 @@
         },
         "CustomCommands": {
             "enabled": false
+        },
+        "ExpressionManager": {
+            "enabled": false
+        },
+        "MusicRichPresence": {
+            "enabled": false
         }
     },
     "notifications": {
@@ -566,10 +565,12 @@
         "authenticated": false,
         "url": "https://api.vencord.dev/",
         "settingsSync": false,
-        "settingsSyncVersion": 1773788585314
+        "settingsSyncVersion": 1794328297626
     },
     "uiElements": {
         "chatBarButtons": {},
         "messagePopoverButtons": {}
-    }
+    },
+    "windowsMaterial": "none",
+    "nativeTitleBar": false
 }
